@@ -1155,7 +1155,7 @@ input, select {
       `総コスト: ¥${fmt(currentCost() || Number($('resultAmount').textContent.replace(/,/g, '')))}\n` +
       `会議時間: ${fmtTimeLong(state.elapsedMs)}\n` +
       `参加者: ${state.people}名 / 時給 ¥${fmt(state.wage)}\n` +
-      `https://meeting-cost-calculator.vercel.app`;
+      `https://meeting-cost-calculator-drab.vercel.app`;
     try {
       await navigator.clipboard.writeText(text);
       showToast('コピーしました');
@@ -1169,7 +1169,7 @@ input, select {
     const amount = $('resultAmount').textContent;
     const time = fmtTimeLong(state.elapsedMs);
     const text = `この会議で ¥${amount} 燃えてました。(${time} / ${state.people}名)\n\n#会議コスト計算機`;
-    const url = 'https://meeting-cost-calculator.vercel.app';
+    const url = 'https://meeting-cost-calculator-drab.vercel.app';
     window.open(
       `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
       '_blank',
