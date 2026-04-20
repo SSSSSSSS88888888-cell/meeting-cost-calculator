@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#F5F5F4">
+<title>会議コスト計算機 - この会議、いくら燃えてますか？</title>
+<meta name="description" content="参加者の時給と人数を入れるだけで、会議中にリアルタイムで燃える金額を可視化。ムダ会議を削減するためのシンプルなツール。">
+<meta property="og:title" content="会議コスト計算機">
+<meta property="og:description" content="この会議、いくら燃えてますか？">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================
+   DESIGN TOKENS - Back Office Design System v1
+   ============================================ */
+:root {
+  /* Near-monochrome with cool undertone — sharper grayscale ladder */
+  --bg: #F5F5F4;
+  --surface: #FFFFFF;
+  --surface-2: #EFEEEC;
+  --surface-3: #E7E5E4;
+  --border: #D6D3D1;
+  --border-strong: #A8A29E;
+  --text: #0A0A0A;
+  --text-2: #262626;
+  --dim: #57534E;
+  --dim-2: #78716C;
+
+  --primary: #0A0A0A;
+  --accent: #0A0A0A;
+  --accent-hover: #262626;
+
+  /* State colors — kept restrained */
+  --success: #047857;
+  --danger: #B91C1C;
+  --warning: #B45309;
+
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 10px;
+
+  /* Shadows reduced — rely on borders instead */
+  --shadow-sm: 0 1px 0 rgba(10,10,10,0.04);
+  --shadow: 0 1px 2px rgba(10,10,10,0.04);
+  --shadow-lg: 0 8px 24px -8px rgba(10,10,10,0.12);
+
+  --duration: 160ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  --font-sans: "Inter", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-num: "JetBrains Mono", "Inter", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Touch-safe tap target */
+  --tap: 48px;
+
+  /* Safe-area */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+[data-theme="dark"] {
+  --bg: #0A0A0A;
+  --surface: #141414;
+  --surface-2: #1A1A1A;
+  --surface-3: #222222;
+  --border: #2A2A2A;
+  --border-strong: #3F3F3F;
+  --text: #FAFAFA;
+  --text-2: #E5E5E5;
+  --dim: #A3A3A3;
+  --dim-2: #737373;
+  --primary: #FAFAFA;
+  --accent: #FAFAFA;
+  --accent-hover: #E5E5E5;
+  --success: #34D399;
+  --danger: #F87171;
+  --warning: #FBBF24;
+  --shadow-sm: 0 1px 0 rgba(0,0,0,0.4);
+  --shadow: 0 1px 2px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 24px -8px rgba(0,0,0,0.6);
+}
+
+/* ============================================
+   BASE
+   ============================================ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01", "ss03";
+  letter-spacing: -0.005em;
+  overscroll-behavior-y: none;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+}
+
+input, select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Tabular numbers for money */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ============================================
+   LAYOUT
+   ============================================ */
+.app {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 540px;
+  width: 100%;
+  margin: 0 auto;
+  padding: clamp(12px, 4vw, 20px) clamp(16px, 5vw, 28px) 48px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 clamp(24px, 6vw, 40px);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.brand-mark {
+  width: 28px; height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--bg);
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font-num);
+  letter-spacing: -0.02em;
+}
+.brand-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-left: 2px;
+}
+
+.icon-btn {
+  width: var(--tap); height: var(--tap);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+  color: var(--dim);
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+.icon-btn:active { background: var(--surface-3); }
+.icon-btn svg { width: 18px; height: 18px; }
+
+/* ============================================
+   SCREENS
+   ============================================ */
+.screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 240ms var(--ease);
+}
+.screen[hidden] { display: none; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.hero {
+  margin-bottom: clamp(28px, 7vw, 40px);
+}
+.hero-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+  margin-bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.hero-eyebrow::before {
+  content: "";
+  width: 18px;
+  height: 1px;
+  background: var(--border-strong);
+}
+.hero h1 {
+  font-size: clamp(28px, 7.5vw, 36px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+.hero p {
+  font-size: clamp(14px, 3.8vw, 15px);
+  color: var(--dim);
+  max-width: 40ch;
+  line-height: 1.6;
+}
+
+/* ============================================
+   FIELDS
+   ============================================ */
+.field { margin-bottom: 22px; }
+.field-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--dim);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.field-label .req {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  color: var(--dim-2);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+.field-hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--dim-2);
+  margin-top: 10px;
+  letter-spacing: 0;
+}
+
+.stepper {
+  display: grid;
+  grid-template-columns: var(--tap) 1fr var(--tap);
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color var(--duration) var(--ease);
+}
+.stepper:focus-within { border-color: var(--text); }
+.stepper button {
+  height: var(--tap);
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 400;
+  transition: background var(--duration) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.stepper button:hover { background: var(--surface-2); }
+.stepper button:active { background: var(--surface-3); }
+.stepper input {
+  height: var(--tap);
+  border: none;
+  text-align: center;
+  background: transparent;
+  font-size: 18px;
+  font-weight: 600;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  outline: none;
+  width: 100%;
+  -moz-appearance: textfield;
+}
+.stepper input::-webkit-outer-spin-button,
+.stepper input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.preset {
+  min-height: 60px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-align: left;
+  transition: border-color var(--duration) var(--ease), background var(--duration) var(--ease);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  -webkit-tap-highlight-color: transparent;
+}
+.preset:hover { border-color: var(--border-strong); }
+.preset:active { background: var(--surface-2); }
+.preset[aria-pressed="true"] {
+  border-color: var(--text);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+.preset-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--dim);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.preset-val {
+  font-family: var(--font-num);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.input-wrap {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color var(--duration) var(--ease);
+}
+.input-wrap:focus-within { border-color: var(--text); }
+.input-wrap input {
+  width: 100%;
+  height: var(--tap);
+  padding: 0 14px 0 32px;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.input-prefix {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--dim);
+  font-weight: 500;
+  pointer-events: none;
+  font-family: var(--font-num);
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+.btn {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 20px;
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease), color var(--duration) var(--ease), transform 80ms var(--ease);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  font-family: var(--font-sans);
+}
+.btn:active { transform: scale(0.985); }
+
+.btn-primary {
+  background: var(--text);
+  color: var(--bg);
+}
+.btn-primary:hover { background: var(--text-2); }
+[data-theme="dark"] .btn-primary { background: var(--text); color: var(--bg); }
+[data-theme="dark"] .btn-primary:hover { background: var(--text-2); }
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--surface-2); border-color: var(--border-strong); }
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--border);
+}
+.btn-danger:hover { background: color-mix(in srgb, var(--danger) 6%, var(--surface)); border-color: var(--danger); }
+
+.btn .btn-arrow {
+  margin-left: auto;
+  opacity: 0.6;
+  transition: transform var(--duration) var(--ease), opacity var(--duration) var(--ease);
+}
+.btn:hover .btn-arrow { opacity: 1; transform: translateX(2px); }
+
+.btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* ============================================
+   RUNNING SCREEN
+   ============================================ */
+.counter-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: clamp(40px, 10vw, 56px) clamp(20px, 6vw, 32px) clamp(32px, 8vw, 44px);
+  text-align: center;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.counter-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--text), transparent);
+  opacity: 0.3;
+}
+.counter-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--dim);
+  margin-bottom: 20px;
+}
+.counter-amount {
+  font-family: var(--font-num);
+  font-size: clamp(44px, 14vw, 68px);
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 16px;
+  color: var(--text);
+}
+.counter-amount .yen {
+  font-size: 0.55em;
+  font-weight: 400;
+  color: var(--dim);
+  margin-right: 0.12em;
+  vertical-align: 0.28em;
+  letter-spacing: 0;
+}
+.counter-rate {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.counter-rate .dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-right: 8px;
+  vertical-align: 1px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.counter-rate.warning .dot { background: var(--warning); }
+.counter-rate.danger .dot { background: var(--danger); }
+@keyframes pulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--dim);
+  margin-bottom: 6px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.stat-val {
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+/* ============================================
+   RESULT SCREEN
+   ============================================ */
+.result-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: clamp(28px, 7vw, 40px) clamp(20px, 5vw, 28px);
+  text-align: center;
+  margin-bottom: 16px;
+}
+.result-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--dim);
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.result-amount {
+  font-family: var(--font-num);
+  font-size: clamp(40px, 12vw, 56px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+.result-amount .yen {
+  font-size: 0.55em;
+  font-weight: 400;
+  color: var(--dim);
+  margin-right: 0.1em;
+  vertical-align: 0.25em;
+}
+.result-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--dim);
+  margin-bottom: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.result-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.result-meta span {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+.verdict {
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+  text-align: left;
+  border-left: 2px solid var(--border-strong);
+}
+.verdict.bad { background: color-mix(in srgb, var(--danger) 6%, var(--surface)); color: var(--danger); border-left-color: var(--danger); }
+.verdict.warn { background: color-mix(in srgb, var(--warning) 8%, var(--surface)); color: var(--warning); border-left-color: var(--warning); }
+.verdict.good { background: color-mix(in srgb, var(--success) 6%, var(--surface)); color: var(--success); border-left-color: var(--success); }
+
+.share-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
+.footer {
+  margin-top: auto;
+  padding-top: 40px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--dim-2);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.footer a {
+  color: var(--dim);
+  text-decoration: none;
+  transition: color var(--duration) var(--ease);
+}
+.footer a:hover { color: var(--text); }
+
+/* ============================================
+   TOAST
+   ============================================ */
+.toast {
+  position: fixed;
+  bottom: calc(20px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--text);
+  color: var(--bg);
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transition: opacity 220ms var(--ease), transform 220ms var(--ease);
+  z-index: 100;
+  pointer-events: none;
+  max-width: calc(100vw - 32px);
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ============================================
+   RESPONSIVE — mobile-first, touch-optimized
+   ============================================ */
+
+/* Tablet (≤768px) — wider breathing room, keep single column */
+@media (max-width: 768px) {
+  .app {
+    max-width: 100%;
+  }
+}
+
+/* Small tablet / large phone (≤600px) */
+@media (max-width: 600px) {
+  .topbar {
+    padding-bottom: 24px;
+  }
+  .btn {
+    min-height: 52px;
+  }
+}
+
+/* Mobile (≤480px) — tighten rhythm, boost tap targets */
+@media (max-width: 480px) {
+  :root {
+    --tap: 52px;
+  }
+  body {
+    font-size: 14px;
+  }
+  .app {
+    padding: 12px 16px 40px;
+  }
+  .topbar {
+    padding: 2px 0 22px;
+  }
+  .brand {
+    font-size: 12px;
+    gap: 8px;
+  }
+  .brand-mark {
+    width: 26px; height: 26px;
+    font-size: 13px;
+  }
+  .hero {
+    margin-bottom: 26px;
+  }
+  .hero h1 {
+    font-size: clamp(26px, 8.5vw, 32px);
+    letter-spacing: -0.03em;
+  }
+  .field { margin-bottom: 20px; }
+  .preset-grid { gap: 6px; }
+  .preset { min-height: 64px; padding: 12px 14px; }
+  .preset-val { font-size: 16px; }
+
+  .counter-card {
+    padding: 36px 18px 32px;
+    border-radius: 8px;
+  }
+  .counter-amount {
+    font-size: clamp(40px, 13.5vw, 52px);
+  }
+  .stats-grid { gap: 6px; }
+  .stat { padding: 12px 14px; }
+  .stat-val { font-size: 19px; }
+
+  .result-card {
+    padding: 28px 18px;
+    border-radius: 8px;
+  }
+  .result-amount { font-size: clamp(36px, 11vw, 44px); }
+  .result-meta {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    font-size: 10px;
+  }
+  .result-meta span { font-size: 13px; }
+  .verdict { font-size: 13px; padding: 12px 14px; }
+
+  .btn-row, .share-row { gap: 6px; }
+  .btn {
+    min-height: 54px;
+    font-size: 14.5px;
+    padding: 0 16px;
+  }
+
+  .footer { padding-top: 32px; font-size: 9px; }
+}
+
+/* Very small devices (≤360px) */
+@media (max-width: 360px) {
+  .hero h1 { font-size: 24px; }
+  .counter-amount { font-size: 36px; }
+  .result-amount { font-size: 32px; }
+  .result-meta { font-size: 9px; }
+  .result-meta span { font-size: 12px; }
+  .btn { font-size: 14px; }
+  .preset-val { font-size: 15px; }
+}
+
+/* Landscape phones — keep hero tight so form stays visible */
+@media (max-height: 560px) and (orientation: landscape) {
+  .hero { margin-bottom: 20px; }
+  .hero h1 { font-size: 22px; }
+  .counter-card { padding: 28px 20px; }
+  .counter-amount { font-size: 40px; }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Hover only on devices that support it — kill hover styles on touch */
+@media (hover: none) {
+  .btn-primary:hover { background: var(--text); }
+  .btn-secondary:hover { background: var(--surface); border-color: var(--border); }
+  .preset:hover { border-color: var(--border); }
+  .stepper button:hover { background: transparent; }
+  .icon-btn:hover { background: transparent; color: var(--dim); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">¥</div>
+      <span>Meeting Cost</span>
+      <span class="brand-meta">v1.0</span>
+    </div>
+    <button class="icon-btn" id="themeToggle" aria-label="テーマ切替">
+      <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      <svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </header>
+
+  <!-- ========== SETUP ========== -->
+  <section class="screen" id="setupScreen">
+    <div class="hero">
+      <div class="hero-eyebrow">Real-time · Client-side</div>
+      <h1>この会議、<br>いくら燃えてますか。</h1>
+      <p>参加者の人数と時給を入れるだけで、消費される人件費をリアルタイムに可視化します。</p>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="peopleInput">
+        <span>参加者の人数</span>
+        <span class="req">必須</span>
+      </label>
+      <div class="stepper">
+        <button type="button" id="peopleMinus" aria-label="減らす">−</button>
+        <input type="number" id="peopleInput" value="5" min="1" max="99" inputmode="numeric">
+        <button type="button" id="peoplePlus" aria-label="増やす">＋</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">
+        <span>平均時給（ひとり当たり）</span>
+        <span class="req">必須</span>
+      </label>
+      <div class="preset-grid">
+        <button type="button" class="preset" data-wage="1100">
+          <span class="preset-title">アルバイト</span>
+          <span class="preset-val">¥1,100</span>
+        </button>
+        <button type="button" class="preset" data-wage="3000" aria-pressed="true">
+          <span class="preset-title">一般社員</span>
+          <span class="preset-val">¥3,000</span>
+        </button>
+        <button type="button" class="preset" data-wage="5000">
+          <span class="preset-title">管理職</span>
+          <span class="preset-val">¥5,000</span>
+        </button>
+        <button type="button" class="preset" data-wage="10000">
+          <span class="preset-title">役員クラス</span>
+          <span class="preset-val">¥10,000</span>
+        </button>
+      </div>
+      <div class="input-wrap">
+        <span class="input-prefix">¥</span>
+        <input type="number" id="wageInput" value="3000" min="0" max="999999" inputmode="numeric" aria-label="カスタム時給">
+      </div>
+      <p class="field-hint">年収 ÷ 1,800 ≒ 時給</p>
+    </div>
+
+    <button class="btn btn-primary" id="startBtn">
+      計測を開始する
+      <svg class="btn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+  </section>
+
+  <!-- ========== RUNNING ========== -->
+  <section class="screen" id="runningScreen" hidden>
+    <div class="counter-card">
+      <div class="counter-label">Burning Now</div>
+      <div class="counter-amount tnum"><span class="yen">¥</span><span id="amountDisplay">0</span></div>
+      <div class="counter-rate" id="rateDisplay">
+        <span class="dot"></span>
+        <span id="rateText">¥0 / 秒</span>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="stat-label">Elapsed</div>
+        <div class="stat-val tnum" id="timeDisplay">00:00</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">People</div>
+        <div class="stat-val tnum"><span id="peopleDisplay">5</span><span style="font-size:13px;color:var(--dim);margin-left:4px;font-family:var(--font-mono);font-weight:400;">名</span></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="pauseBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+        <span id="pauseBtnText">一時停止</span>
+      </button>
+      <button class="btn btn-danger" id="stopBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+        終了する
+      </button>
+    </div>
+  </section>
+
+  <!-- ========== RESULT ========== -->
+  <section class="screen" id="resultScreen" hidden>
+    <div class="hero">
+      <div class="hero-eyebrow">Session Completed</div>
+      <h1>会議、おつかれさまでした。</h1>
+      <p>今回の会議で消費された人件費の内訳です。</p>
+    </div>
+
+    <div class="result-card" id="resultCard">
+      <div class="result-label">Total Burned</div>
+      <div class="result-amount tnum"><span class="yen">¥</span><span id="resultAmount">0</span></div>
+      <div class="result-meta">
+        <div>TIME<span class="tnum" id="resultTime">00:00</span></div>
+        <div>PEOPLE<span class="tnum" id="resultPeople">5</span></div>
+        <div>WAGE<span class="tnum" id="resultWage">¥3,000</span></div>
+      </div>
+      <div class="verdict" id="verdict"></div>
+    </div>
+
+    <div class="share-row">
+      <button class="btn btn-secondary" id="copyBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        結果をコピー
+      </button>
+      <button class="btn btn-secondary" id="shareBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        Xでシェア
+      </button>
+    </div>
+    <button class="btn btn-primary" id="resetBtn">
+      もう一度計測する
+    </button>
+  </section>
+
+  <footer class="footer">
+    <a href="https://x.com/otsu_dev" target="_blank" rel="noopener">100 Web Apps Challenge · #12</a>
+  </footer>
+</div>
+
+<div class="toast" id="toast">コピーしました</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ===== State =====
+  const state = {
+    people: 5,
+    wage: 3000,
+    startedAt: 0,
+    elapsedMs: 0,
+    pausedAt: 0,
+    isPaused: false,
+    rafId: 0,
+  };
+
+  // ===== Elements =====
+  const $ = (id) => document.getElementById(id);
+  const setup = $('setupScreen');
+  const running = $('runningScreen');
+  const result = $('resultScreen');
+  const peopleInput = $('peopleInput');
+  const wageInput = $('wageInput');
+  const presets = document.querySelectorAll('.preset');
+  const amountDisplay = $('amountDisplay');
+  const rateDisplay = $('rateDisplay');
+  const rateText = $('rateText');
+  const timeDisplay = $('timeDisplay');
+  const peopleDisplay = $('peopleDisplay');
+  const toast = $('toast');
+
+  // ===== Utils =====
+  const fmt = (n) => Math.floor(n).toLocaleString('ja-JP');
+  const fmtTime = (ms) => {
+    const s = Math.floor(ms / 1000);
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    return `${mm}:${ss}`;
+  };
+  const fmtTimeLong = (ms) => {
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return `${h}時間${m}分${sec}秒`;
+    if (m > 0) return `${m}分${sec}秒`;
+    return `${sec}秒`;
+  };
+  const showToast = (msg) => {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toast.classList.remove('show'), 1800);
+  };
+  const show = (el) => { el.hidden = false; };
+  const hide = (el) => { el.hidden = true; };
+  const goTo = (screen) => {
+    [setup, running, result].forEach(hide);
+    show(screen);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
+  // ===== Theme =====
+  const themeToggle = $('themeToggle');
+  const iconSun = $('iconSun');
+  const iconMoon = $('iconMoon');
+  const applyTheme = (t) => {
+    document.documentElement.setAttribute('data-theme', t);
+    iconSun.hidden = t === 'dark';
+    iconMoon.hidden = t !== 'dark';
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', t === 'dark' ? '#0B0D10' : '#FAFAFA');
+  };
+  const savedTheme = localStorage.getItem('mcc-theme') ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  applyTheme(savedTheme);
+  themeToggle.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('mcc-theme', next);
+    applyTheme(next);
+  });
+
+  // ===== Setup controls =====
+  $('peopleMinus').addEventListener('click', () => {
+    const v = Math.max(1, Number(peopleInput.value) - 1);
+    peopleInput.value = v;
+  });
+  $('peoplePlus').addEventListener('click', () => {
+    const v = Math.min(99, Number(peopleInput.value) + 1);
+    peopleInput.value = v;
+  });
+  peopleInput.addEventListener('input', () => {
+    const v = Math.max(1, Math.min(99, Number(peopleInput.value) || 1));
+    peopleInput.value = v;
+  });
+
+  presets.forEach(btn => {
+    btn.addEventListener('click', () => {
+      presets.forEach(b => b.setAttribute('aria-pressed', 'false'));
+      btn.setAttribute('aria-pressed', 'true');
+      wageInput.value = btn.dataset.wage;
+    });
+  });
+  wageInput.addEventListener('input', () => {
+    presets.forEach(b => b.setAttribute('aria-pressed', 'false'));
+  });
+
+  // ===== Start =====
+  $('startBtn').addEventListener('click', () => {
+    state.people = Math.max(1, Number(peopleInput.value) || 1);
+    state.wage = Math.max(0, Number(wageInput.value) || 0);
+    state.startedAt = performance.now();
+    state.elapsedMs = 0;
+    state.isPaused = false;
+    peopleDisplay.textContent = state.people;
+    goTo(running);
+    tick();
+  });
+
+  // ===== Tick loop =====
+  function currentCost() {
+    // cost per ms = people * wage / 3_600_000
+    return state.people * state.wage * (state.elapsedMs / 3600000);
+  }
+  function currentRate() {
+    // per second
+    return state.people * state.wage / 3600;
+  }
+  function tick() {
+    if (!state.isPaused) {
+      const now = performance.now();
+      state.elapsedMs = now - state.startedAt;
+    }
+    const cost = currentCost();
+    amountDisplay.textContent = fmt(cost);
+    timeDisplay.textContent = fmtTime(state.elapsedMs);
+    const rate = currentRate();
+    rateText.textContent = rate >= 10
+      ? `¥${fmt(rate)} / 秒 で燃焼中`
+      : `¥${fmt(rate * 60)} / 分 で燃焼中`;
+
+    rateDisplay.classList.remove('warning', 'danger');
+    if (cost >= 50000) rateDisplay.classList.add('danger');
+    else if (cost >= 10000) rateDisplay.classList.add('warning');
+
+    state.rafId = requestAnimationFrame(tick);
+  }
+
+  // ===== Pause =====
+  const pauseBtn = $('pauseBtn');
+  const pauseBtnText = $('pauseBtnText');
+  pauseBtn.addEventListener('click', () => {
+    if (state.isPaused) {
+      const now = performance.now();
+      state.startedAt += (now - state.pausedAt);
+      state.isPaused = false;
+      pauseBtnText.textContent = '一時停止';
+    } else {
+      state.isPaused = true;
+      state.pausedAt = performance.now();
+      pauseBtnText.textContent = '再開する';
+    }
+  });
+
+  // ===== Stop → Result =====
+  $('stopBtn').addEventListener('click', () => {
+    cancelAnimationFrame(state.rafId);
+    const total = currentCost();
+    $('resultAmount').textContent = fmt(total);
+    $('resultTime').textContent = fmtTime(state.elapsedMs);
+    $('resultPeople').textContent = state.people;
+    $('resultWage').textContent = '¥' + fmt(state.wage);
+
+    const v = $('verdict');
+    v.classList.remove('bad', 'warn', 'good');
+    if (total >= 50000) {
+      v.classList.add('bad');
+      v.textContent = `この会議、¥${fmt(total)}の価値はありましたか？ もし議題を絞れば半分で終わったかもしれません。`;
+    } else if (total >= 10000) {
+      v.classList.add('warn');
+      v.textContent = `¥${fmt(total)}の人件費が使われました。次回はアジェンダを事前共有して、もう少し短くできそうです。`;
+    } else {
+      v.classList.add('good');
+      v.textContent = `短くまとまりました。この調子で密度の高い会議を積み重ねていきましょう。`;
+    }
+    goTo(result);
+  });
+
+  // ===== Reset =====
+  $('resetBtn').addEventListener('click', () => {
+    state.elapsedMs = 0;
+    state.isPaused = false;
+    pauseBtnText.textContent = '一時停止';
+    goTo(setup);
+  });
+
+  // ===== Copy result =====
+  $('copyBtn').addEventListener('click', async () => {
+    const text =
+      `【会議コスト計算機】\n` +
+      `総コスト: ¥${fmt(currentCost() || Number($('resultAmount').textContent.replace(/,/g, '')))}\n` +
+      `会議時間: ${fmtTimeLong(state.elapsedMs)}\n` +
+      `参加者: ${state.people}名 / 時給 ¥${fmt(state.wage)}\n` +
+      `https://meeting-cost-calculator.vercel.app`;
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('コピーしました');
+    } catch {
+      showToast('コピーに失敗しました');
+    }
+  });
+
+  // ===== Share X =====
+  $('shareBtn').addEventListener('click', () => {
+    const amount = $('resultAmount').textContent;
+    const time = fmtTimeLong(state.elapsedMs);
+    const text = `この会議で ¥${amount} 燃えてました。(${time} / ${state.people}名)\n\n#会議コスト計算機`;
+    const url = 'https://meeting-cost-calculator.vercel.app';
+    window.open(
+      `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+      '_blank',
+      'noopener'
+    );
+  });
+
+  // ===== Keyboard shortcuts =====
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !running.hidden === false && setup.hidden === false) {
+      $('startBtn').click();
+    }
+    if (e.key === ' ' && !running.hidden) {
+      e.preventDefault();
+      pauseBtn.click();
+    }
+    if (e.key === 'Escape' && !running.hidden) {
+      $('stopBtn').click();
+    }
+  });
+})();
+</script>
+</body>
+</html>
